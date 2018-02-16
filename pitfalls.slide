@@ -1,0 +1,141 @@
+Go Pitfalls
+Simple and advanced.
+15:04 2 Jan 2006
+Tags: foo, bar, baz
+
+Benjamin Cable
+Web Engineer, Lush Ditigal
+ben.cable@lush.co.uk
+https://ben.cable.fyi
+
+
+* Before we start
+
+Credit goes to *yourbasic.org*:
+
+.link http://yourbasic.org/golang/
+
+A lot of their work under CC BY 3.0 license has been adapted for this talk.
+
+* String Concatenation
+
+.play -edit concat/main.go
+
+* Answer
+
+  "H", "i":  String literals.
+  'H', 'i': Rune literals.
+
+Rune literals are int32 values representing a unicode code point.
+
+  'H' == 72
+  'i' == 105
+
+* Copy
+
+.play -edit copy/main.go
+
+This prints:
+
+  dst: []
+
+why?
+
+* Answer
+
+As per the documentation:
+
+Copy returns the number of elements copied, which will be the minimum of len(src) and len(dst).
+
+So: to make a copy, you must first allocate a slice big enough to receive the data:
+
+  destination := make([]int, len(source))
+
+* Appending data
+
+.play -edit append/main.go
+
+Why are we not printing *abc* and *abcd*?
+
+* Answer
+
+If there is room for more elements, append reuses the underlying array.
+
+  a := []byte("ab")
+  fmt.Println(len(a), cap(a))
+  // Output: 2 32
+  
+This means that the slices *a*, *a1* and *a2* will refer to the same underlying array in our example.
+
+* Loop Variables
+
+.play -edit loopvars/main.go
+
+* Answer
+
+There is a *data* *race*: the variable *i* is shared by *6* goroutines.
+
+- You can use a local variable:
+
+  for i := 0; i < 5; i++ {
+      go func(n int) { // Use a local variable.
+        ...
+      }(i)
+  }
+
+- You can forcefully shadow, or create a new variable:
+
+  for i := 0; i < 5; i++ {
+      i := i // force shadowing
+      n := i // create a new local variable
+      go func() {
+        ...
+      }()
+  }
+
+* More Loop Variables
+
+.play -edit same/main.go
+
+Why are we printing *0* here?
+
+* Answer
+
+The statement *n* *:=* *1* declares a new variable which shadows the original *n* throughout the scope of the if statement.
+
+: Remember that scope is defined by any statement enclosed in curly braces.
+: That means any function declaration, method declaration, or raw braces.
+
+* Unexpected newline
+
+.play -edit newline/main.go
+
+Yikes.
+
+  ./compile26.go:12:17: syntax error: unexpected newline, expecting comma or }
+
+* Answer
+
+In a multi-line slice, array or map literal, *every* *line* *must* *end* *with* *a* *comma.*
+
+: When the input is broken into tokens, a semicolon is automatically inserted into the token stream immediately after a line's final token if that token is
+: - an identifier.
+: - an integer, floating-point, imaginary, rune, or string literal.
+: -  one of the keywords break, continue, fallthrough, or return.
+: - one of the operators and punctuation ++, --, ), ], or }.
+: - To allow complex statements to occupy a single line, a semicolon may be omitted before a closing ")" or "}".
+
+* nil != nil
+
+.play -edit nil/main.go
+
+* Answer
+
+An interface value is equal to *nil* only if both its value and dynamic type are nil.
+
+As per the spec:
+
+  Variables of interface type also have a distinct dynamic type,
+  which is the actual type of the value stored in the variable at run time.
+
+In the example above, Foo() returns <nil>, <*os.PathError> and we compare it with <nil>, <nil>.
